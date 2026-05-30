@@ -64,7 +64,7 @@ Fine-tuning trains the model specifically on TOEIC/Japanese data, making it even
 
 | Training Mode | Min VRAM | Recommended |
 |---|---|---|
-| 7B model (4-bit QLoRA) | 12 GB | 16–24 GB |
+| 7B model ![alt text](image.png)(4-bit QLoRA) | 12 GB | 16–24 GB |
 | 3B model (full LoRA) | 8 GB | 12 GB |
 | 1.5B model (full LoRA) | 6 GB | 8 GB |
 

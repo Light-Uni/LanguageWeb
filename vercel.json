@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://your-backend-domain.com/api/$1"
+      "destination": "https://languageweb-nyuz.onrender.com/api/$1"
     },
     {
       "source": "/((?!api/.*).*)",
