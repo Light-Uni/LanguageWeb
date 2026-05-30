@@ -16,6 +16,11 @@ ALLOWED_HOSTS = os.environ.get(
     'ALLOWED_HOSTS', 'localhost,127.0.0.1'
 ).split(',')
 
+# Automatically allow Render host when deploying on Render
+render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if render_host:
+    ALLOWED_HOSTS.append(render_host)
+
 # ─── HTTPS & Cookie Security ──────────────────────────────────────────────────
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
