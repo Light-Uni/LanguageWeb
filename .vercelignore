@@ -1,0 +1,27 @@
+# ─── Vercel Deployment — .vercelignore ───────────────────────────────────────
+# Tells Vercel which files/folders to exclude from the deployment bundle.
+# The frontend is a pure React/Vite SPA — we only need src/, public/, and config files.
+
+# Backend — Django runs on a separate server, not Vercel
+backend/
+
+# Docker/Nginx files — not relevant for Vercel
+Dockerfile
+.dockerignore
+docker-compose.yml
+nginx.conf
+
+# AI Training pipeline — heavy ML scripts, never needed on Vercel
+backend/ai_training/
+
+# Development artifacts
+node_modules/
+dist/
+*.log
+
+# Editor/OS files
+.DS_Store
+Thumbs.db
+
+# Figma/Design files (no longer needed)
+guidelines/

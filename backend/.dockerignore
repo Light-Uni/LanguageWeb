@@ -1,0 +1,48 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Backend .dockerignore — Keeps Docker context lean and secure
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Python virtual environment (use requirements.txt instead)
+venv/
+.venv/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# SQLite database (volume-mounted in docker-compose)
+db.sqlite3
+
+# Static files (generated during build)
+staticfiles/
+media/
+
+# Secret environment files — never bake into image
+.env
+.env.local
+.env.*.local
+
+# Test and coverage artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+*.xml
+
+# IDE and OS files
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+__pycache__/
+
+# Documentation
+README.md
+docs/

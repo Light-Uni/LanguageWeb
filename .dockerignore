@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Frontend .dockerignore — Keeps Docker context lean
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Dependencies — installed fresh in container
+node_modules/
+.pnpm-store/
+
+# Build output — generated during image build
+dist/
+build/
+
+# Django backend — not part of frontend image
+backend/
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# Testing artifacts
+coverage/
+
+# IDE and OS files
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

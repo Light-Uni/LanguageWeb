@@ -1,0 +1,135 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# LinguaFlow — Docker Compose
+#
+# Development mode: hot-reloaded Vite + Django dev server + optional Postgres
+# Production mode:  docker compose --profile production up
+#
+# Usage:
+#   docker compose up                          # Start dev environment
+#   docker compose up --build                  # Rebuild and start
+#   docker compose --profile production up     # Start production stack
+#   docker compose down -v                     # Stop and remove volumes
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+
+  # ── Django REST API ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: linguaflow-backend:dev
+    container_name: linguaflow_backend
+    # Override CMD to Django dev server in development
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      # Mount source for hot-reload
+      - ./backend:/app
+      # Persist SQLite database across rebuilds
+      - linguaflow_db_data:/app/db.sqlite3
+    env_file:
+      - ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=linguaflow.settings.development
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    networks:
+      - linguaflow-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/auth/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── React/Vite Frontend ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Use the 'development' stage for hot-reload
+      target: development
+    image: linguaflow-frontend:dev
+    container_name: linguaflow_frontend
+    volumes:
+      # Mount entire src for hot-reload
+      - .:/app
+      # Prevent host node_modules from overriding container's
+      - /app/node_modules
+    environment:
+      # Vite uses this to proxy /api/* → Django in Docker network
+      - BACKEND_URL=http://backend:8000
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - linguaflow-net
+
+  # ── PostgreSQL (Optional — comment in to enable) ─────────────────────────────
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: linguaflow_postgres
+  #   environment:
+  #     POSTGRES_DB: linguaflow_db
+  #     POSTGRES_USER: linguaflow_user
+  #     POSTGRES_PASSWORD: linguaflow_pass
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - linguaflow-net
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U linguaflow_user -d linguaflow_db"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ── Production stack (run with: docker compose --profile production up) ──────
+  frontend_prod:
+    profiles: ["production"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: linguaflow-frontend:prod
+    container_name: linguaflow_frontend_prod
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - linguaflow-net
+
+  backend_prod:
+    profiles: ["production"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: linguaflow-backend:prod
+    container_name: linguaflow_backend_prod
+    # Gunicorn CMD is already set in the Dockerfile
+    volumes:
+      - linguaflow_db_data:/app/db.sqlite3
+    env_file:
+      - ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=linguaflow.settings.production
+    ports:
+      - "8000:8000"
+    networks:
+      - linguaflow-net
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  linguaflow_db_data:
+  # postgres_data:  # Uncomment if using PostgreSQL
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  linguaflow-net:
+    driver: bridge
