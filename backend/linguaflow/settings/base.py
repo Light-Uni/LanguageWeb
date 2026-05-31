@@ -74,8 +74,22 @@ TEMPLATES = [
 WSGI_APPLICATION = 'linguaflow.wsgi.application'
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-DB_ENGINE = os.environ.get('DB_ENGINE', 'sqlite')
-if DB_ENGINE == 'postgresql':
+# Priority:
+#   1. DATABASE_URL env var (set automatically by Render PostgreSQL — recommended for production)
+#   2. DB_ENGINE=postgresql  with individual DB_* vars
+#   3. SQLite fallback (local development only — data is lost on Render restarts!)
+import dj_database_url
+
+_database_url = os.environ.get('DATABASE_URL')
+if _database_url:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            _database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+elif os.environ.get('DB_ENGINE', 'sqlite') == 'postgresql':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -93,6 +107,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
 
 
 # ─── Custom User Model ────────────────────────────────────────────────────────
