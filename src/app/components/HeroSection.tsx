@@ -1,5 +1,7 @@
 import { motion } from "motion/react";
 import { ArrowRight, Play, Flame, Trophy, Star, BookOpen, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../contexts/AuthContext";
 
 function FloatCard({
   children,
@@ -63,6 +65,9 @@ function ProgressRing({
 }
 
 export function HeroSection() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
   return (
     <section
       className="relative overflow-hidden"
@@ -215,6 +220,7 @@ export function HeroSection() {
             >
               {/* Primary CTA */}
               <button
+                onClick={() => navigate(isAuthenticated ? "/dashboard" : "/register")}
                 className="flex items-center gap-2.5 px-7 py-3.5 rounded-2xl transition-all duration-200 group"
                 style={{
                   background: "linear-gradient(135deg, #6C63FF 0%, #3B82F6 100%)",
@@ -244,6 +250,7 @@ export function HeroSection() {
 
               {/* Secondary CTA */}
               <button
+                onClick={() => navigate(isAuthenticated ? "/dashboard" : "/login")}
                 className="flex items-center gap-2.5 px-7 py-3.5 rounded-2xl transition-all duration-200"
                 style={{
                   background: "rgba(108,99,255,0.08)",

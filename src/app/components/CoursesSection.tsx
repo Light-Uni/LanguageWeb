@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Clock, Users, Star, ChevronRight, BarChart3 } from "lucide-react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../contexts/AuthContext";
 
 const TABS = ["Tất cả", "TOEIC", "Tiếng Nhật", "Mới nhất"];
 
@@ -98,6 +100,8 @@ const COURSES = [
 ];
 
 export function CoursesSection() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState("Tất cả");
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -365,6 +369,7 @@ export function CoursesSection() {
                     </div>
 
                     <button
+                      onClick={() => navigate(isAuthenticated ? "/dashboard" : "/login")}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl transition-all duration-200"
                       style={{
                         background: isHov
@@ -392,6 +397,7 @@ export function CoursesSection() {
         {/* View all link */}
         <div className="text-center mt-12">
           <button
+            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/login")}
             className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl transition-all duration-200"
             style={{
               background: "rgba(108,99,255,0.08)",

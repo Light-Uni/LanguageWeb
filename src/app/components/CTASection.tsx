@@ -1,7 +1,12 @@
 import { motion } from "motion/react";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../contexts/AuthContext";
 
 export function CTASection() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
   return (
     <section className="relative py-28 px-8 overflow-hidden" style={{ background: "#060a1a" }}>
       {/* Background effects */}
@@ -121,6 +126,7 @@ export function CTASection() {
 
             <div className="flex flex-wrap items-center justify-center gap-4">
               <button
+                onClick={() => navigate(isAuthenticated ? "/dashboard" : "/register")}
                 className="flex items-center gap-2.5 px-8 py-4 rounded-2xl transition-all duration-200"
                 style={{
                   background: "linear-gradient(135deg, #6C63FF, #3B82F6)",
