@@ -21,6 +21,19 @@ render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if render_host:
     ALLOWED_HOSTS.append(render_host)
 
+# ─── CORS (Production) ────────────────────────────────────────────────────────
+# Start with whatever is in CORS_ALLOWED_ORIGINS env var (set in base.py)
+# Then append the explicit FRONTEND_URL if provided.
+frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
+if frontend_url and frontend_url not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append(frontend_url)
+
+# Allow all Vercel preview deployment URLs automatically.
+# Pattern matches: https://<anything>.vercel.app
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://[\w-]+\.vercel\.app$',
+]
+
 # ─── HTTPS & Cookie Security ──────────────────────────────────────────────────
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
