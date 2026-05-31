@@ -26,7 +26,7 @@ def seed_database():
     # 1. Create Users
     print("Creating users...")
     admin_user, created = User.objects.get_or_create(
-        username="admin",
+        username="admin@linguaflow.com",
         defaults={
             "email": "admin@linguaflow.com",
             "role": "admin",
@@ -42,7 +42,7 @@ def seed_database():
         print("Admin user already exists.")
 
     student_user, created = User.objects.get_or_create(
-        username="student",
+        username="nguyen.an@email.com",
         defaults={
             "email": "nguyen.an@email.com",
             "role": "student",

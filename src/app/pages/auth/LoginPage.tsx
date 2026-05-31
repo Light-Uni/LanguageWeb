@@ -76,15 +76,15 @@ export function LoginPage() {
         {/* Email */}
         <div>
           <label style={{ color: "#8899bb", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", fontWeight: 500, display: "block", marginBottom: 8 }}>
-            Email
+            Tên đăng nhập hoặc Email
           </label>
           <div className="relative">
             <Mail size={16} color="#6b7fa3" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@example.com"
+              placeholder="Tên đăng nhập hoặc Email"
               style={{ ...inputStyle, paddingLeft: 42 }}
               onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(108,99,255,0.5)"; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(108,99,255,0.2)"; }}

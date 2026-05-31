@@ -1,1 +1,0 @@
-import{h as a}from"./index-v2hLl9HR.js";const t={async getStats(){return await a.get("/api/dashboard/stats/")},async getHeatmap(){return await a.get("/api/dashboard/heatmap/")},async getSchedule(){return await a.get("/api/dashboard/schedule/")},async getWeeklyProgress(){return await a.get("/api/dashboard/weekly-progress/")}};export{t as d};
