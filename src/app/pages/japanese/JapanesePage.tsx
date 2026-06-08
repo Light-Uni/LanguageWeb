@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Globe, BookOpen, Layers, Pencil, CheckCircle2, XCircle, RefreshCw, Sparkles } from "lucide-react";
 import { HIRAGANA, KATAKANA, KANJI_LIST, AI_WRITING_EXAMPLES } from "../../../lib/mockData";
+import { vocabularyService, VocabularyWord } from "../../../lib/services/vocabularyService";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const TABS = [
   { id: "hiragana", label: "Hiragana", icon: Globe, color: "#EC4899" },
@@ -94,28 +96,66 @@ function KanaGrid({ data, color }: { data: { char: string; romaji: string }[]; c
 function KanjiGrid() {
   const [selected, setSelected] = useState<number | null>(null);
   const [filter, setFilter] = useState("N5");
+  const { user } = useAuth();
 
-  const filtered = KANJI_LIST.filter((k) => filter === "All" || k.level === filter);
+  // Fetch real Jisho data from the backend API
+  const [apiKanji, setApiKanji] = useState<VocabularyWord[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const cats = ["JLPT_N5", "JLPT_N4", "JLPT_N3"];
+    Promise.all(cats.map((cat) => vocabularyService.getVocabulary({ category: cat })))
+      .then((results) => {
+        const all = results.flatMap((r) => r?.results || []);
+        if (all.length > 0) setApiKanji(all);
+      })
+      .catch(() => {}) // silently fall back to static data
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  // Use API data if available, otherwise fall back to static mockData
+  const source = apiKanji.length > 0
+    ? apiKanji.map((v) => ({
+        char:    v.word,
+        reading: v.reading,
+        meaning: v.meaning_vi,
+        strokes: 0,
+        level:   v.category === "JLPT_N5" ? "N5" : v.category === "JLPT_N4" ? "N4" : "N3",
+        pos:     v.pos,
+        example: v.definition_en, // use Jisho English definitions as the "example"
+      }))
+    : KANJI_LIST;
+
+  const filtered = source.filter((k) => filter === "All" || k.level === filter);
 
   return (
     <div>
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {["All", "N5", "N4", "N3"].map((lvl) => (
-          <button
-            key={lvl}
-            onClick={() => setFilter(lvl)}
-            className="px-4 py-2 rounded-xl transition-all duration-200"
-            style={{
-              background: filter === lvl ? "rgba(245,158,11,0.18)" : "rgba(11,16,35,0.6)",
-              border: filter === lvl ? "1px solid rgba(245,158,11,0.45)" : "1px solid rgba(108,99,255,0.15)",
-              color: filter === lvl ? "#F59E0B" : "#6b7fa3", fontFamily: "Inter, sans-serif", fontWeight: 600, fontSize: "0.8125rem", cursor: "pointer",
-            }}
-          >
-            {lvl}
-          </button>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-2 flex-wrap">
+          {["All", "N5", "N4", "N3"].map((lvl) => (
+            <button
+              key={lvl}
+              onClick={() => setFilter(lvl)}
+              className="px-4 py-2 rounded-xl transition-all duration-200"
+              style={{
+                background: filter === lvl ? "rgba(245,158,11,0.18)" : "rgba(11,16,35,0.6)",
+                border: filter === lvl ? "1px solid rgba(245,158,11,0.45)" : "1px solid rgba(108,99,255,0.15)",
+                color: filter === lvl ? "#F59E0B" : "#6b7fa3", fontFamily: "Inter, sans-serif", fontWeight: 600, fontSize: "0.8125rem", cursor: "pointer",
+              }}
+            >
+              {lvl}
+            </button>
+          ))}
+        </div>
+        <span style={{
+          color: loading ? "#4a5a7a" : apiKanji.length > 0 ? "#F59E0B" : "#3d4d6a",
+          fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.04em",
+        }}>
+          {loading ? "Loading Jisho..." : apiKanji.length > 0 ? `Jisho.org (${source.length} words)` : "mockData fallback"}
+        </span>
       </div>
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
         {filtered.map((k, i) => (
           <motion.button
             key={i}
@@ -136,6 +176,11 @@ function KanjiGrid() {
             <p style={{ color: "#8B5CF6", fontFamily: "JetBrains Mono, monospace", fontSize: "0.6875rem", marginBottom: 4 }}>{k.reading}</p>
             <p style={{ color: "#8899bb", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem" }}>{k.meaning}</p>
             <p style={{ color: "#4a5a7a", fontFamily: "JetBrains Mono, monospace", fontSize: "0.625rem", marginTop: 4 }}>{k.strokes} nét</p>
+            {selected === i && (k as any).example && (
+              <p style={{ color: "#F59E0B", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(245,158,11,0.2)", lineHeight: 1.6 }}>
+                EN: {(k as any).example}
+              </p>
+            )}
           </motion.button>
         ))}
       </div>

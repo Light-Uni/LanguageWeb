@@ -27,8 +27,11 @@ class Vocabulary(models.Model):
 
     word        = models.CharField(max_length=200)
     reading     = models.CharField(max_length=200, blank=True, default='')  # For Japanese (hiragana/furigana)
+    pos         = models.CharField(max_length=50,  blank=True, default='')  # Part of speech (verb, noun, adj ...)
     meaning_vi  = models.TextField()                                          # Vietnamese meaning
+    definition_en = models.TextField(blank=True, default='')                 # English definition from dictionary API
     example     = models.TextField(blank=True, default='')
+    audio_url   = models.URLField(max_length=500, blank=True, default='')    # Pronunciation audio (from dictionary API)
     category    = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='TOEIC')
     difficulty  = models.IntegerField(choices=DIFFICULTY_CHOICES, default=2)
     created_at  = models.DateTimeField(auto_now_add=True)

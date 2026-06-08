@@ -1,12 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Headphones, BookOpen, Brain, FileText, Play, Pause,
-  ChevronRight, CheckCircle2, XCircle, RotateCcw, Clock, Trophy,
+  ChevronRight, CheckCircle2, XCircle, RotateCcw, Clock, Trophy, Volume2,
 } from "lucide-react";
 import {
   TOEIC_LISTENING_QUESTIONS, TOEIC_READING_PASSAGES, TOEIC_VOCABULARY, MOCK_TEST_INFO
 } from "../../../lib/mockData";
+import { vocabularyService, VocabularyWord } from "../../../lib/services/vocabularyService";
+import { useAuth } from "../../../contexts/AuthContext";
 
 /* ─── Tabs ────────────────────────────────────────────────────────────────────*/
 const TABS = [
@@ -17,15 +19,23 @@ const TABS = [
 ];
 
 /* ─── FlashCard ───────────────────────────────────────────────────────────────*/
-function FlashCard({ word, meaning, example, level }: { word: string; meaning: string; example: string; level: string }) {
+function FlashCard({ word, meaning, example, level, pos, definition_en, audio_url }: {
+  word: string; meaning: string; example: string; level: string;
+  pos?: string; definition_en?: string; audio_url?: string;
+}) {
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState<null | boolean>(null);
+
+  const playAudio = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (audio_url) new Audio(audio_url).play().catch(() => {});
+  };
 
   return (
     <div className="flex flex-col items-center gap-6">
       <div
         className="cursor-pointer w-full"
-        style={{ perspective: 1000, maxWidth: 480, height: 280 }}
+        style={{ perspective: 1000, maxWidth: 480, height: definition_en ? 320 : 280 }}
         onClick={() => setFlipped(!flipped)}
       >
         <motion.div
@@ -43,9 +53,22 @@ function FlashCard({ word, meaning, example, level }: { word: string; meaning: s
               boxShadow: "0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(108,99,255,0.1)",
             }}
           >
-            <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", color: "#4a5a7a", letterSpacing: "0.08em", marginBottom: 16 }}>{level}</span>
+            <div className="flex items-center gap-3 mb-4">
+              <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", color: "#4a5a7a", letterSpacing: "0.08em" }}>{level}</span>
+              {pos && <span style={{ background: "rgba(108,99,255,0.15)", color: "#8B5CF6", fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem", fontWeight: 700, padding: "2px 8px", borderRadius: 99 }}>{pos}</span>}
+            </div>
             <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "2.5rem", color: "#f0f4ff", letterSpacing: "-0.02em", textAlign: "center" }}>{word}</p>
-            <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", marginTop: 16, textAlign: "center" }}>Nhấn để xem nghĩa →</p>
+            {audio_url && (
+              <button onClick={playAudio} className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "#3B82F6", cursor: "pointer" }}>
+                <Volume2 size={13} /> Phát âm
+              </button>
+            )}
+            {definition_en && (
+              <div className="mt-4 px-4 py-2.5 rounded-xl w-full" style={{ background: "rgba(108,99,255,0.06)", border: "1px solid rgba(108,99,255,0.15)" }}>
+                <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontStyle: "italic", textAlign: "center", lineHeight: 1.55 }}>📘 {definition_en}</p>
+              </div>
+            )}
+            <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", marginTop: 14, textAlign: "center" }}>Nhấn để xem nghĩa →</p>
           </div>
           {/* Back */}
           <div
@@ -57,7 +80,7 @@ function FlashCard({ word, meaning, example, level }: { word: string; meaning: s
               boxShadow: "0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(108,99,255,0.15)",
             }}
           >
-            <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", color: "#6C63FF", letterSpacing: "0.08em", marginBottom: 12 }}>NGHĨA</span>
+            <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", color: "#6C63FF", letterSpacing: "0.08em", marginBottom: 12 }}>NGHĨA TIẾNG VIỆT</span>
             <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 700, fontSize: "1.375rem", color: "#f0f4ff", textAlign: "center", marginBottom: 16 }}>{meaning}</p>
             <div className="px-4 py-3 rounded-xl w-full" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
               <p style={{ color: "#8B5CF6", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", fontStyle: "italic", textAlign: "center", lineHeight: 1.6 }}>"{example}"</p>
@@ -389,6 +412,38 @@ function MockTestTab() {
 export function TOEICPage() {
   const [activeTab, setActiveTab] = useState("listening");
   const [cardIdx, setCardIdx] = useState(0);
+  const { user } = useAuth();
+
+  // Vocabulary state — fetched from backend API (real dictionary data)
+  const [vocabList, setVocabList] = useState<VocabularyWord[]>([]);
+  const [vocabLoading, setVocabLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "vocabulary") return;
+    if (vocabList.length > 0) return; // already loaded
+    setVocabLoading(true);
+    const fallback = TOEIC_VOCABULARY.map((v, i) => ({
+      id: i,
+      word: v.word,
+      reading: "",
+      pos: (v as any).pos || "",
+      meaning_vi: v.meaning,
+      definition_en: (v as any).cambridge || "",
+      example: v.example,
+      audio_url: "",
+      category: "TOEIC",
+      difficulty: 2,
+    }));
+    vocabularyService
+      .getVocabulary({ category: "TOEIC" })
+      .then((res) => {
+        setVocabList(res?.results?.length ? res.results : fallback);
+      })
+      .catch(() => setVocabList(fallback))
+      .finally(() => setVocabLoading(false));
+  }, [activeTab, user]);
+
+  const currentCard = vocabList[cardIdx];
 
   return (
     <div className="px-8 py-8" style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -440,16 +495,42 @@ export function TOEICPage() {
           {activeTab === "reading" && <ReadingTab />}
           {activeTab === "vocabulary" && (
             <div className="max-w-2xl mx-auto">
-              <div className="flex items-center justify-between mb-6">
-                <span style={{ color: "#6b7fa3", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem" }}>
-                  Từ {cardIdx + 1}/{TOEIC_VOCABULARY.length}
-                </span>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span style={{ color: "#6b7fa3", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem" }}>
+                    Từ {vocabList.length > 0 ? cardIdx + 1 : 0}/{vocabList.length}
+                  </span>
+                  <span style={{ color: "#3d4d6a", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", marginLeft: 8 }}>
+                    {vocabLoading
+                      ? "⏳ Đang tải từ Cambridge..."
+                      : vocabList.length > 0 && vocabList[0].definition_en
+                      ? "📘 Cambridge Dictionary"
+                      : ""}
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => setCardIdx((i) => Math.max(0, i - 1))} className="px-3 py-1.5 rounded-xl" style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)", color: "#6b7fa3", cursor: "pointer" }}>← Trước</button>
-                  <button onClick={() => setCardIdx((i) => Math.min(TOEIC_VOCABULARY.length - 1, i + 1))} className="px-3 py-1.5 rounded-xl" style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)", color: "#6b7fa3", cursor: "pointer" }}>Tiếp →</button>
+                  <button onClick={() => setCardIdx((i) => Math.min(vocabList.length - 1, i + 1))} className="px-3 py-1.5 rounded-xl" style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)", color: "#6b7fa3", cursor: "pointer" }}>Tiếp →</button>
                 </div>
               </div>
-              <FlashCard {...TOEIC_VOCABULARY[cardIdx]} />
+              {vocabLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.9rem" }}>
+                    📚 Đang tải dữ liệu từ điển Cambridge...
+                  </div>
+                </div>
+              ) : currentCard ? (
+                <FlashCard
+                  key={cardIdx}
+                  word={currentCard.word}
+                  meaning={currentCard.meaning_vi}
+                  example={currentCard.example}
+                  level={`TOEIC · ${currentCard.difficulty === 1 ? "Dễ" : currentCard.difficulty === 2 ? "Trung bình" : "Khó"}`}
+                  pos={currentCard.pos}
+                  definition_en={currentCard.definition_en}
+                  audio_url={currentCard.audio_url}
+                />
+              ) : null}
             </div>
           )}
           {activeTab === "mocktest" && <MockTestTab />}

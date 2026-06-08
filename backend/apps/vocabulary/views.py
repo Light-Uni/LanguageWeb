@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from datetime import date, timedelta
+import requests as http_requests
 
 from .models import Vocabulary, UserVocabulary
 from .serializers import (
@@ -209,3 +210,122 @@ class VocabStatsView(APIView):
             ],
             'difficultWords': difficult_words,
         })
+
+
+class DictionaryLookupView(APIView):
+    """
+    GET /api/vocabulary/lookup/?word=accomplish&lang=en
+    GET /api/vocabulary/lookup/?word=勉強&lang=ja
+
+    Live dictionary lookup — calls the Free Dictionary API (English) or
+    Jisho API (Japanese), caches the result in the DB, and returns enriched
+    word data. Requires authentication.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        word = request.query_params.get('word', '').strip()
+        lang = request.query_params.get('lang', 'en').lower()
+
+        if not word:
+            return Response({'error': 'Thiếu tham số word.'}, status=400)
+
+        # Check if we already have enriched data in the DB
+        existing = Vocabulary.objects.filter(word=word).first()
+        if existing and existing.definition_en:
+            return Response(VocabularySerializer(existing).data)
+
+        # ── English lookup via Free Dictionary API (Cambridge-sourced) ──────
+        if lang == 'en':
+            try:
+                api_url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word.lower()}"
+                resp = http_requests.get(api_url, timeout=8)
+                if resp.status_code == 404:
+                    return Response({'error': f"'{word}' not found in dictionary."}, status=404)
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as exc:
+                return Response({'error': str(exc)}, status=502)
+
+            entry    = data[0] if data else {}
+            meanings = entry.get('meanings', [])
+            pos = definition_en = example = audio_url = ''
+
+            if meanings:
+                first   = meanings[0]
+                pos     = first.get('partOfSpeech', '')
+                defs    = first.get('definitions', [])
+                if defs:
+                    definition_en = defs[0].get('definition', '')
+                    example       = defs[0].get('example', '')
+
+            for ph in entry.get('phonetics', []):
+                if ph.get('audio'):
+                    audio_url = ph['audio']
+                    break
+
+            # Cache into DB if the entry already exists
+            if existing:
+                existing.pos           = pos
+                existing.definition_en = definition_en
+                existing.audio_url     = audio_url
+                if example and not existing.example:
+                    existing.example = example
+                existing.save()
+                return Response(VocabularySerializer(existing).data)
+
+            return Response({
+                'word':          word,
+                'pos':           pos,
+                'definition_en': definition_en,
+                'example':       example,
+                'audio_url':     audio_url,
+                'cached':        False,
+            })
+
+        # ── Japanese lookup via Jisho API ───────────────────────────────────
+        elif lang == 'ja':
+            try:
+                resp = http_requests.get(
+                    'https://jisho.org/api/v1/search/words',
+                    params={'keyword': word}, timeout=8
+                )
+                resp.raise_for_status()
+                jdata = resp.json()
+            except Exception as exc:
+                return Response({'error': str(exc)}, status=502)
+
+            results = jdata.get('data', [])
+            if not results:
+                return Response({'error': f"'{word}' not found in Jisho."}, status=404)
+
+            entry = results[0]
+            japanese_info = entry.get('japanese', [{}])[0]
+            reading       = japanese_info.get('reading', '')
+
+            senses        = entry.get('senses', [])
+            pos = definition_en = ''
+            if senses:
+                first_sense = senses[0]
+                pos_list    = first_sense.get('parts_of_speech', [])
+                pos         = pos_list[0] if pos_list else ''
+                eng_defs    = first_sense.get('english_definitions', [])
+                definition_en = '; '.join(eng_defs[:3])
+
+            if existing:
+                existing.reading       = reading
+                existing.pos           = pos
+                existing.definition_en = definition_en
+                existing.save()
+                return Response(VocabularySerializer(existing).data)
+
+            return Response({
+                'word':          word,
+                'reading':       reading,
+                'pos':           pos,
+                'definition_en': definition_en,
+                'audio_url':     '',
+                'cached':        False,
+            })
+
+        return Response({'error': "lang must be 'en' or 'ja'."}, status=400)
