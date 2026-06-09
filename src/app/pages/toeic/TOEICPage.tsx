@@ -1,13 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Headphones, BookOpen, Brain, FileText, Play, Pause,
-  ChevronRight, CheckCircle2, XCircle, RotateCcw, Clock, Trophy, Volume2,
+  Headphones, BookOpen, Brain, FileText,
+  ChevronRight, CheckCircle2, XCircle, Trophy, Volume2,
+  Search, Loader2, AlertCircle, GraduationCap,
+
 } from "lucide-react";
+
 import {
-  TOEIC_LISTENING_QUESTIONS, TOEIC_READING_PASSAGES, TOEIC_VOCABULARY, MOCK_TEST_INFO
+  TOEIC_LISTENING_QUESTIONS, TOEIC_READING_PASSAGES, TOEIC_VOCABULARY, MOCK_TEST_INFO,
+  TOEIC_PART5_QUESTIONS, TOEIC_PART7_PASSAGES, TOEIC_GRAMMAR_QUESTIONS,
 } from "../../../lib/mockData";
 import { vocabularyService, VocabularyWord } from "../../../lib/services/vocabularyService";
+import { lookupWord, EnglishLookupResult, JapaneseLookupResult } from "../../../lib/services/dictionaryService";
 import { useAuth } from "../../../contexts/AuthContext";
 
 /* ─── Tabs ────────────────────────────────────────────────────────────────────*/
@@ -16,6 +21,7 @@ const TABS = [
   { id: "reading", label: "Reading", icon: BookOpen, color: "#8B5CF6" },
   { id: "vocabulary", label: "Vocabulary", icon: Brain, color: "#10B981" },
   { id: "mocktest", label: "Mock Test", icon: FileText, color: "#EC4899" },
+  { id: "dictionary", label: "Dictionary", icon: Search, color: "#F59E0B" },
 ];
 
 /* ─── FlashCard ───────────────────────────────────────────────────────────────*/
@@ -324,89 +330,474 @@ function ReadingTab() {
   );
 }
 
-/* ─── Mock Test Info ──────────────────────────────────────────────────────────*/
-function MockTestTab() {
-  const [started, setStarted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(MOCK_TEST_INFO.duration * 60);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+/* ─── MCQ Option ─────────────────────────────────────────────────────────────*/
+function MCQOption({ letter, text, selected, correct, submitted, onClick }: {
+  letter: string; text: string; selected: boolean; correct: boolean; submitted: boolean; onClick: () => void;
+}) {
+  let bg = "rgba(255,255,255,0.03)";
+  let border = "rgba(108,99,255,0.15)";
+  let color = "#c4cfea";
+  if (submitted) {
+    if (correct) { bg = "rgba(16,185,129,0.1)"; border = "rgba(16,185,129,0.4)"; color = "#10B981"; }
+    else if (selected) { bg = "rgba(239,68,68,0.1)"; border = "rgba(239,68,68,0.4)"; color = "#ef4444"; }
+  } else if (selected) { bg = "rgba(108,99,255,0.15)"; border = "rgba(108,99,255,0.5)"; color = "#f0f4ff"; }
+  return (
+    <button
+      onClick={() => !submitted && onClick()}
+      className="flex items-center gap-4 px-5 py-3.5 rounded-2xl text-left w-full transition-all duration-150"
+      style={{ background: bg, border: `1px solid ${border}`, cursor: submitted ? "default" : "pointer" }}
+    >
+      <span style={{ fontFamily: "JetBrains Mono, monospace", fontWeight: 700, color, fontSize: "0.75rem", minWidth: 20 }}>{letter}</span>
+      <span style={{ color, fontFamily: "Inter, sans-serif", fontSize: "0.9rem" }}>{text}</span>
+      {submitted && correct && <CheckCircle2 size={16} color="#10B981" style={{ marginLeft: "auto", flexShrink: 0 }} />}
+      {submitted && selected && !correct && <XCircle size={16} color="#ef4444" style={{ marginLeft: "auto", flexShrink: 0 }} />}
+    </button>
+  );
+}
 
-  const startTest = () => {
-    setStarted(true);
-    timerRef.current = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) { clearInterval(timerRef.current!); return 0; }
-        return t - 1;
-      });
-    }, 1000);
-  };
+/* ─── Part 5 Exam ─────────────────────────────────────────────────────────────*/
+function Part5Exam({ onBack }: { onBack: () => void }) {
+  const [qIdx, setQIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [showResult, setShowResult] = useState(false);
 
-  const mins = Math.floor(timeLeft / 60).toString().padStart(2, "0");
-  const secs = (timeLeft % 60).toString().padStart(2, "0");
+  const q = TOEIC_PART5_QUESTIONS[qIdx];
+  const totalQ = TOEIC_PART5_QUESTIONS.length;
+  const selected = answers[q.id];
+  const score = TOEIC_PART5_QUESTIONS.filter(q => answers[q.id] === q.correct).length;
 
-  if (!started) {
+  if (showResult) {
+    const pct = Math.round((score / totalQ) * 100);
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="p-8 rounded-2xl mb-6 text-center" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.2)" }}>
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "linear-gradient(135deg,#EC4899,#8B5CF6)", boxShadow: "0 0 40px rgba(236,72,153,0.3)" }}>
-            <Trophy size={36} color="white" />
-          </div>
-          <h2 style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "1.75rem", color: "#f0f4ff", letterSpacing: "-0.03em", marginBottom: 8 }}>TOEIC Mock Test</h2>
-          <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.9375rem", lineHeight: 1.7, marginBottom: 24 }}>
-            Chuẩn ETS 2025 · 200 câu hỏi · 120 phút
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-xl mx-auto">
+        <div className="p-8 rounded-3xl text-center mb-6" style={{ background: pct >= 70 ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)", border: `1px solid ${pct >= 70 ? "rgba(16,185,129,0.25)" : "rgba(245,158,11,0.25)"}` }}>
+          <Trophy size={48} color={pct >= 70 ? "#10B981" : "#F59E0B"} style={{ margin: "0 auto 16px" }} />
+          <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "3rem", color: pct >= 70 ? "#10B981" : "#F59E0B" }}>{score}/{totalQ}</p>
+          <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", marginTop: 4 }}>
+            {pct >= 80 ? "🎉 Xuất sắc! Part 5 của bạn rất tốt!" : pct >= 60 ? "👍 Khá tốt! Ôn lại các câu sai." : "📚 Cần ôn tập thêm ngữ pháp TOEIC."}
           </p>
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            {[
-              { label: "Thời gian", value: "120 phút", icon: Clock, color: "#3B82F6" },
-              { label: "Tổng câu", value: "200 câu", icon: FileText, color: "#8B5CF6" },
-              { label: "Điểm tối đa", value: "990 điểm", icon: Trophy, color: "#F59E0B" },
-              { label: "Độ khó", value: "ETS 2025", icon: Brain, color: "#EC4899" },
-            ].map((s) => (
-              <div key={s.label} className="p-4 rounded-xl" style={{ background: `${s.color}0d`, border: `1px solid ${s.color}25` }}>
-                <s.icon size={20} color={s.color} style={{ marginBottom: 8 }} />
-                <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 700, fontSize: "1.125rem", color: "#f0f4ff" }}>{s.value}</p>
-                <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", marginTop: 2 }}>{s.label}</p>
-              </div>
-            ))}
+          <div className="h-2 rounded-full mt-6 mb-2" style={{ background: "rgba(255,255,255,0.08)" }}>
+            <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: pct >= 70 ? "linear-gradient(90deg,#10B981,#3B82F6)" : "linear-gradient(90deg,#F59E0B,#EC4899)", transition: "width 1s ease" }} />
           </div>
-          <div className="flex flex-col gap-2 mb-6 text-left">
-            {MOCK_TEST_INFO.parts.map((p) => (
-              <div key={p.part} className="flex items-center justify-between px-4 py-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <span style={{ color: "#c4cfea", fontFamily: "Inter, sans-serif", fontSize: "0.875rem" }}>Part {p.part}: {p.name}</span>
-                <span style={{ color: p.type === "listening" ? "#3B82F6" : "#8B5CF6", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem", fontWeight: 600 }}>{p.questions} câu</span>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={startTest}
-            className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all duration-200"
-            style={{ background: "linear-gradient(135deg,#EC4899,#8B5CF6)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 700, fontSize: "1rem", border: "none", cursor: "pointer", boxShadow: "0 0 32px rgba(236,72,153,0.35)" }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 48px rgba(236,72,153,0.5)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 32px rgba(236,72,153,0.35)"; e.currentTarget.style.transform = "translateY(0)"; }}
-          >
-            <Play size={20} fill="white" /> Bắt đầu thi thử
-          </button>
+          <p style={{ color: "#4a5a7a", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem" }}>{pct}% chính xác</p>
         </div>
-      </div>
+        <div className="flex flex-col gap-3 mb-6">
+          {TOEIC_PART5_QUESTIONS.map((q) => {
+            const isCorrect = answers[q.id] === q.correct;
+            return (
+              <div key={q.id} className="p-4 rounded-2xl" style={{ background: isCorrect ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.06)", border: `1px solid ${isCorrect ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                <div className="flex items-start gap-3 mb-2">
+                  {isCorrect ? <CheckCircle2 size={16} color="#10B981" style={{ flexShrink: 0, marginTop: 2 }} /> : <XCircle size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: 2 }} />}
+                  <p style={{ color: "#c4cfea", fontFamily: "Inter, sans-serif", fontSize: "0.83rem", lineHeight: 1.6 }}>
+                    {q.sentence.replace("________", `[${q.options[answers[q.id] ?? -1] ?? "?"}]`)}
+                  </p>
+                </div>
+                {!isCorrect && (
+                  <div className="ml-7">
+                    <p style={{ color: "#10B981", fontFamily: "Inter, sans-serif", fontSize: "0.78rem" }}>✅ Đáp án: <strong>{q.options[q.correct]}</strong></p>
+                    <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", marginTop: 4, lineHeight: 1.5 }}>💡 {q.explanation}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onBack} className="w-full py-3.5 rounded-2xl" style={{ background: "rgba(108,99,255,0.15)", border: "1px solid rgba(108,99,255,0.3)", color: "#a78bfa", fontFamily: "Sora, sans-serif", fontWeight: 600, cursor: "pointer" }}>← Quay lại menu</button>
+      </motion.div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6 p-4 rounded-2xl sticky top-0 z-10" style={{ background: "rgba(5,8,22,0.9)", backdropFilter: "blur(16px)", border: "1px solid rgba(108,99,255,0.2)" }}>
-        <span style={{ color: "#f0f4ff", fontFamily: "Sora, sans-serif", fontWeight: 700, fontSize: "0.9375rem" }}>TOEIC Mock Test</span>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: timeLeft < 300 ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.1)", border: `1px solid ${timeLeft < 300 ? "rgba(239,68,68,0.4)" : "rgba(59,130,246,0.3)"}` }}>
-          <Clock size={16} color={timeLeft < 300 ? "#ef4444" : "#3B82F6"} />
-          <span style={{ fontFamily: "JetBrains Mono, monospace", fontWeight: 700, fontSize: "1.0625rem", color: timeLeft < 300 ? "#ef4444" : "#3B82F6" }}>{mins}:{secs}</span>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.85rem", background: "none", border: "none", cursor: "pointer" }}>← Quay lại</button>
+        <span style={{ color: "#6b7fa3", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem" }}>Câu {qIdx + 1}/{totalQ} · Part 5</span>
+        <span style={{ background: "rgba(236,72,153,0.15)", color: "#EC4899", fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", fontWeight: 700, padding: "3px 10px", borderRadius: 99 }}>{q.category}</span>
+      </div>
+      <div className="flex gap-1 mb-6">
+        {TOEIC_PART5_QUESTIONS.map((_, i) => (
+          <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: answers[TOEIC_PART5_QUESTIONS[i].id] !== undefined ? "#3B82F6" : i === qIdx ? "rgba(108,99,255,0.5)" : "rgba(255,255,255,0.08)" }} />
+        ))}
+      </div>
+      <div className="p-6 rounded-2xl mb-6" style={{ background: "rgba(11,16,35,0.7)", border: "1px solid rgba(108,99,255,0.2)" }}>
+        <p style={{ color: "#f0f4ff", fontFamily: "Sora, sans-serif", fontWeight: 600, fontSize: "1.0625rem", lineHeight: 1.7 }}>
+          {q.sentence.split("________").map((part, i) => (
+            <span key={i}>
+              {part}
+              {i === 0 && <span style={{ borderBottom: "2px solid #6C63FF", padding: "0 12px", color: selected !== undefined ? "#a78bfa" : "transparent" }}>{selected !== undefined ? q.options[selected] : "________"}</span>}
+            </span>
+          ))}
+        </p>
+      </div>
+      <div className="flex flex-col gap-3 mb-6">
+        {q.options.map((opt, i) => (
+          <MCQOption key={i} letter={["A","B","C","D"][i]} text={opt} selected={selected === i} correct={i === q.correct} submitted={submitted} onClick={() => setAnswers(a => ({ ...a, [q.id]: i }))} />
+        ))}
+      </div>
+      {!submitted ? (
+        <button
+          onClick={() => selected !== undefined && setSubmitted(true)}
+          disabled={selected === undefined}
+          className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2"
+          style={{ background: selected !== undefined ? "linear-gradient(135deg,#EC4899,#8B5CF6)" : "rgba(108,99,255,0.2)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: selected !== undefined ? "pointer" : "not-allowed", boxShadow: selected !== undefined ? "0 0 24px rgba(236,72,153,0.35)" : "none" }}
+        >Kiểm tra đáp án</button>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="p-4 rounded-xl mb-4" style={{ background: "rgba(108,99,255,0.08)", border: "1px solid rgba(108,99,255,0.2)" }}>
+            <p style={{ color: answers[q.id] === q.correct ? "#10B981" : "#ef4444", fontFamily: "Sora, sans-serif", fontWeight: 600, fontSize: "0.875rem", marginBottom: 6 }}>
+              {answers[q.id] === q.correct ? "✅ Chính xác!" : `❌ Sai — Đáp án đúng: ${q.options[q.correct]}`}
+            </p>
+            <p style={{ color: "#a78bfa", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", lineHeight: 1.6 }}>💡 {q.explanation}</p>
+          </div>
+          {qIdx < totalQ - 1 ? (
+            <button onClick={() => { setQIdx(q => q + 1); setSubmitted(false); }} className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,#EC4899,#8B5CF6)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: "pointer" }}>
+              Câu tiếp theo <ChevronRight size={18} />
+            </button>
+          ) : (
+            <button onClick={() => setShowResult(true)} className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,#10B981,#3B82F6)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: "pointer" }}>
+              <Trophy size={18} /> Xem kết quả
+            </button>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Part 7 Exam ─────────────────────────────────────────────────────────────*/
+function Part7Exam({ onBack }: { onBack: () => void }) {
+  const [passageIdx, setPassageIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const passage = TOEIC_PART7_PASSAGES[passageIdx];
+  const totalPassages = TOEIC_PART7_PASSAGES.length;
+  const score = passage.questions.filter(q => answers[q.id] === q.correct).length;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.85rem", background: "none", border: "none", cursor: "pointer" }}>← Quay lại</button>
+        <span style={{ color: "#6b7fa3", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem" }}>Đề {passageIdx + 1}/{totalPassages} · Part 7</span>
+        <div className="flex gap-1">
+          {TOEIC_PART7_PASSAGES.map((_, i) => (
+            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: i === passageIdx ? "#8B5CF6" : "rgba(255,255,255,0.1)", cursor: "pointer" }} onClick={() => { setPassageIdx(i); setAnswers({}); setSubmitted(false); }} />
+          ))}
         </div>
       </div>
-      <div className="p-6 rounded-2xl text-center" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}>
-        <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.9375rem", lineHeight: 1.7 }}>
-          📝 Đây là phiên bản demo. Trong phiên bản đầy đủ, 200 câu hỏi thực sự sẽ được tải tại đây với audio cho phần Listening.
-        </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="p-6 rounded-2xl" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}>
+          <div className="flex items-center gap-2 mb-4">
+            <BookOpen size={16} color="#8B5CF6" />
+            <span style={{ color: "#8B5CF6", fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem", fontWeight: 600 }}>PART 7 · {passage.title.toUpperCase()}</span>
+          </div>
+          <pre style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", color: "#8899bb", lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{passage.passage}</pre>
+        </div>
+        <div className="flex flex-col gap-4">
+          {passage.questions.map((q, qi) => (
+            <div key={q.id} className="p-5 rounded-2xl" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}>
+              <p style={{ color: "#f0f4ff", fontFamily: "Sora, sans-serif", fontWeight: 600, fontSize: "0.9rem", marginBottom: 12 }}>{qi + 1}. {q.question}</p>
+              <div className="flex flex-col gap-2">
+                {q.options.map((opt, i) => (
+                  <MCQOption key={i} letter={["A","B","C","D"][i]} text={opt} selected={answers[q.id] === i} correct={i === q.correct} submitted={submitted} onClick={() => setAnswers(a => ({ ...a, [q.id]: i }))} />
+                ))}
+              </div>
+              {submitted && <p style={{ color: "#a78bfa", fontFamily: "Inter, sans-serif", fontSize: "0.78rem", marginTop: 8, lineHeight: 1.5 }}>💡 {q.explanation}</p>}
+            </div>
+          ))}
+          {!submitted ? (
+            <button onClick={() => setSubmitted(true)} className="py-3.5 rounded-2xl flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,#8B5CF6,#6C63FF)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: "pointer", boxShadow: "0 0 24px rgba(139,92,246,0.35)" }}>Nộp bài</button>
+          ) : (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="p-5 rounded-2xl text-center" style={{ background: score === passage.questions.length ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)", border: `1px solid ${score === passage.questions.length ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}` }}>
+              <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "2rem", color: score === passage.questions.length ? "#10B981" : "#F59E0B" }}>{score}/{passage.questions.length}</p>
+              <p style={{ color: "#8899bb", fontFamily: "Inter, sans-serif", fontSize: "0.875rem", marginTop: 4 }}>{score === passage.questions.length ? "Xuất sắc! 🎉" : "Đọc lại passage để tìm đáp án 📖"}</p>
+              {passageIdx < totalPassages - 1 && (
+                <button onClick={() => { setPassageIdx(p => p + 1); setAnswers({}); setSubmitted(false); }} className="mt-4 px-6 py-2.5 rounded-xl flex items-center gap-2 mx-auto" style={{ background: "linear-gradient(135deg,#8B5CF6,#6C63FF)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: "pointer" }}>
+                  Đề tiếp theo <ChevronRight size={16} />
+                </button>
+              )}
+            </motion.div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+/* ─── Grammar Quiz ────────────────────────────────────────────────────────────*/
+function GrammarQuiz({ onBack }: { onBack: () => void }) {
+  const [qIdx, setQIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const q = TOEIC_GRAMMAR_QUESTIONS[qIdx];
+  const totalQ = TOEIC_GRAMMAR_QUESTIONS.length;
+  const score = TOEIC_GRAMMAR_QUESTIONS.filter(q => answers[q.id] === q.correct).length;
+
+  if (showResult) {
+    const pct = Math.round((score / totalQ) * 100);
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto">
+        <div className="p-8 rounded-3xl text-center mb-6" style={{ background: pct >= 70 ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)", border: `1px solid ${pct >= 70 ? "rgba(16,185,129,0.25)" : "rgba(245,158,11,0.25)"}` }}>
+          <GraduationCap size={48} color={pct >= 70 ? "#10B981" : "#F59E0B"} style={{ margin: "0 auto 16px" }} />
+          <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "3rem", color: pct >= 70 ? "#10B981" : "#F59E0B" }}>{score}/{totalQ}</p>
+          <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif" }}>{pct >= 80 ? "🏆 Ngữ pháp xuất sắc!" : pct >= 60 ? "📚 Khá tốt — ôn lại điểm yếu" : "💪 Cần ôn ngữ pháp TOEIC thêm"}</p>
+        </div>
+        {TOEIC_GRAMMAR_QUESTIONS.map(q => (
+          <div key={q.id} className="p-4 rounded-2xl mb-3" style={{ background: answers[q.id] === q.correct ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.06)", border: `1px solid ${answers[q.id] === q.correct ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+            <div className="flex gap-2 mb-1">
+              {answers[q.id] === q.correct ? <CheckCircle2 size={14} color="#10B981" style={{ flexShrink: 0, marginTop: 2 }} /> : <XCircle size={14} color="#ef4444" style={{ flexShrink: 0, marginTop: 2 }} />}
+              <p style={{ color: "#c4cfea", fontFamily: "Inter, sans-serif", fontSize: "0.83rem", lineHeight: 1.6 }}>
+                {q.question.replace("________", `[${q.options[answers[q.id] ?? -1] ?? "?"}]`)}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-5">
+              <span style={{ background: "rgba(108,99,255,0.15)", color: "#8B5CF6", fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99 }}>{q.topic}</span>
+              {answers[q.id] !== q.correct && <p style={{ color: "#10B981", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }}>✅ {q.options[q.correct]}</p>}
+            </div>
+          </div>
+        ))}
+        <button onClick={onBack} className="w-full py-3.5 rounded-2xl mt-2" style={{ background: "rgba(108,99,255,0.15)", border: "1px solid rgba(108,99,255,0.3)", color: "#a78bfa", fontFamily: "Sora, sans-serif", fontWeight: 600, cursor: "pointer" }}>← Quay lại menu</button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.85rem", background: "none", border: "none", cursor: "pointer" }}>← Quay lại</button>
+        <span style={{ color: "#6b7fa3", fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem" }}>Câu {qIdx + 1}/{totalQ} · Grammar</span>
+        <span style={{ background: "rgba(16,185,129,0.15)", color: "#10B981", fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", fontWeight: 700, padding: "3px 10px", borderRadius: 99 }}>{q.topic}</span>
+      </div>
+      <div className="flex gap-1 mb-6">
+        {TOEIC_GRAMMAR_QUESTIONS.map((_, i) => (
+          <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: answers[TOEIC_GRAMMAR_QUESTIONS[i].id] !== undefined ? "#10B981" : i === qIdx ? "rgba(16,185,129,0.4)" : "rgba(255,255,255,0.08)" }} />
+        ))}
+      </div>
+      <div className="p-6 rounded-2xl mb-6" style={{ background: "rgba(11,16,35,0.7)", border: "1px solid rgba(16,185,129,0.2)" }}>
+        <p style={{ color: "#f0f4ff", fontFamily: "Sora, sans-serif", fontWeight: 600, fontSize: "1.0625rem", lineHeight: 1.75 }}>
+          {q.question.split("________").map((part, i) => (
+            <span key={i}>{part}{i === 0 && <span style={{ borderBottom: "2px solid #10B981", padding: "0 12px", color: answers[q.id] !== undefined ? "#34d399" : "transparent" }}>{answers[q.id] !== undefined ? q.options[answers[q.id]] : "________"}</span>}</span>
+          ))}
+        </p>
+      </div>
+      <div className="flex flex-col gap-3 mb-6">
+        {q.options.map((opt, i) => (
+          <MCQOption key={i} letter={["A","B","C","D"][i]} text={opt} selected={answers[q.id] === i} correct={i === q.correct} submitted={submitted} onClick={() => setAnswers(a => ({ ...a, [q.id]: i }))} />
+        ))}
+      </div>
+      {!submitted ? (
+        <button onClick={() => answers[q.id] !== undefined && setSubmitted(true)} disabled={answers[q.id] === undefined} className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2" style={{ background: answers[q.id] !== undefined ? "linear-gradient(135deg,#10B981,#3B82F6)" : "rgba(108,99,255,0.2)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: answers[q.id] !== undefined ? "pointer" : "not-allowed", boxShadow: answers[q.id] !== undefined ? "0 0 24px rgba(16,185,129,0.35)" : "none" }}>Kiểm tra</button>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="p-4 rounded-xl mb-4" style={{ background: "rgba(108,99,255,0.08)", border: "1px solid rgba(108,99,255,0.2)" }}>
+            <p style={{ color: answers[q.id] === q.correct ? "#10B981" : "#ef4444", fontFamily: "Sora, sans-serif", fontWeight: 600, fontSize: "0.875rem", marginBottom: 6 }}>
+              {answers[q.id] === q.correct ? "✅ Chính xác!" : `❌ Sai — Đáp án: ${q.options[q.correct]}`}
+            </p>
+            <p style={{ color: "#a78bfa", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem", lineHeight: 1.6 }}>💡 {q.explanation}</p>
+          </div>
+          {qIdx < totalQ - 1 ? (
+            <button onClick={() => { setQIdx(i => i + 1); setSubmitted(false); }} className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,#10B981,#3B82F6)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: "pointer" }}>
+              Câu tiếp theo <ChevronRight size={18} />
+            </button>
+          ) : (
+            <button onClick={() => setShowResult(true)} className="w-full py-3.5 rounded-2xl flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg,#10B981,#3B82F6)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: "pointer" }}>
+              <Trophy size={18} /> Xem kết quả
+            </button>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Mock Test Menu ──────────────────────────────────────────────────────────*/
+type ExamMode = "menu" | "part5" | "part7" | "grammar";
+
+function MockTestTab() {
+  const [mode, setMode] = useState<ExamMode>("menu");
+
+  if (mode === "part5") return <Part5Exam onBack={() => setMode("menu")} />;
+  if (mode === "part7") return <Part7Exam onBack={() => setMode("menu")} />;
+  if (mode === "grammar") return <GrammarQuiz onBack={() => setMode("menu")} />;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="p-8 rounded-3xl mb-6 text-center" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.2)" }}>
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "linear-gradient(135deg,#EC4899,#8B5CF6)", boxShadow: "0 0 40px rgba(236,72,153,0.3)" }}>
+          <Trophy size={36} color="white" />
+        </div>
+        <h2 style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "1.75rem", color: "#f0f4ff", letterSpacing: "-0.03em", marginBottom: 8 }}>TOEIC Practice Exam</h2>
+        <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.9375rem", lineHeight: 1.7 }}>Chọn phần thi để bắt đầu luyện tập ngay</p>
+      </div>
+      <div className="grid grid-cols-1 gap-4">
+        {[
+          { mode: "part5" as ExamMode, icon: FileText, color: "#EC4899", title: "Part 5 — Incomplete Sentences", desc: `${TOEIC_PART5_QUESTIONS.length} câu · Ngữ pháp & Từ vựng TOEIC`, badge: "Grammar" },
+          { mode: "part7" as ExamMode, icon: BookOpen, color: "#8B5CF6", title: "Part 7 — Reading Comprehension", desc: `${TOEIC_PART7_PASSAGES.length} bài đọc · Đọc hiểu thực chiến`, badge: "Reading" },
+          { mode: "grammar" as ExamMode, icon: GraduationCap, color: "#10B981", title: "Grammar Quiz — Ngữ pháp nâng cao", desc: `${TOEIC_GRAMMAR_QUESTIONS.length} câu · Thì, thể bị động, mệnh đề`, badge: "Grammar+" },
+        ].map((item) => (
+          <motion.button
+            key={item.mode}
+            whileHover={{ scale: 1.015, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setMode(item.mode)}
+            className="p-6 rounded-2xl flex items-center gap-5 text-left w-full transition-all duration-200"
+            style={{ background: `${item.color}0d`, border: `1px solid ${item.color}30`, cursor: "pointer" }}
+          >
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}18`, border: `1px solid ${item.color}35` }}>
+              <item.icon size={26} color={item.color} />
+            </div>
+            <div className="flex-1">
+              <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 700, fontSize: "1rem", color: "#f0f4ff", marginBottom: 4 }}>{item.title}</p>
+              <p style={{ color: "#6b7fa3", fontFamily: "Inter, sans-serif", fontSize: "0.8125rem" }}>{item.desc}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <span style={{ background: `${item.color}20`, color: item.color, fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem", fontWeight: 700, padding: "2px 8px", borderRadius: 99 }}>{item.badge}</span>
+              <ChevronRight size={18} color={item.color} />
+            </div>
+          </motion.button>
+        ))}
+      </div>
+      <div className="mt-6 p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <p style={{ color: "#4a5a7a", fontFamily: "Inter, sans-serif", fontSize: "0.78rem", textAlign: "center" }}>📌 Listening full test (Part 1-4) cần audio — sẽ bổ sung trong bản cập nhật tới</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Dictionary Search Tab ──────────────────────────────────────────────────*/
+function DictionarySearchTab() {
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState("");
+
+  const search = async () => {
+    const word = query.trim();
+    if (!word) return;
+    setLoading(true);
+    setResult(null);
+    setError("");
+    const res = await lookupWord(word);
+    if (res) {
+      setResult(res);
+    } else {
+      setError(`Không tìm thấy "${word}" trong từ điển.`);
+    }
+    setLoading(false);
+  };
+
+  const isEn = result && result.source === "freedictionary";
+  const isJa = result && result.source === "jisho";
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="mb-6 p-5 rounded-2xl" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
+        <div className="flex items-center gap-3 mb-1">
+          <Search size={17} color="#F59E0B" />
+          <p style={{ color: "#F59E0B", fontFamily: "Sora, sans-serif", fontWeight: 700, fontSize: "0.9375rem" }}>Tra từ điển</p>
+        </div>
+        <p style={{ color: "#4a5a7a", fontFamily: "Inter, sans-serif", fontSize: "0.78rem" }}>
+          English → Free Dictionary API · 日本語 → Jisho · Nhận diện ngôn ngữ tự động
+        </p>
+      </div>
+      <div className="flex gap-3 mb-6">
+        <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: "rgba(11,16,35,0.8)", border: "1px solid rgba(245,158,11,0.25)" }}>
+          <Search size={16} color="#F59E0B" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+            placeholder="accomplish / 勉強 / negotiate..."
+            style={{ background: "transparent", border: "none", outline: "none", color: "#f0f4ff", fontFamily: "Inter, sans-serif", fontSize: "1rem", width: "100%" }}
+          />
+        </div>
+        <button
+          onClick={search}
+          disabled={loading || !query.trim()}
+          className="px-6 py-3 rounded-2xl flex items-center gap-2"
+          style={{ background: query.trim() ? "linear-gradient(135deg,#F59E0B,#EC4899)" : "rgba(108,99,255,0.2)", color: "white", fontFamily: "Sora, sans-serif", fontWeight: 600, border: "none", cursor: query.trim() ? "pointer" : "not-allowed", boxShadow: query.trim() ? "0 0 20px rgba(245,158,11,0.35)" : "none", whiteSpace: "nowrap" }}
+        >
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={16} />}
+          Tra
+        </button>
+      </div>
+
+      {error && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-2xl mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <AlertCircle size={18} color="#ef4444" />
+          <p style={{ color: "#ef4444", fontFamily: "Inter, sans-serif", fontSize: "0.875rem" }}>{error}</p>
+        </motion.div>
+      )}
+
+      {result && (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4">
+          {/* Word Header */}
+          <div className="p-6 rounded-2xl" style={{ background: "rgba(11,16,35,0.7)", border: "1px solid rgba(245,158,11,0.25)" }}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p style={{ fontFamily: "Sora, sans-serif", fontWeight: 800, fontSize: "2.25rem", color: "#f0f4ff", letterSpacing: "-0.02em" }}>{result.word}</p>
+                {isEn && result.phonetic && <p style={{ color: "#F59E0B", fontFamily: "JetBrains Mono, monospace", fontSize: "0.9rem", marginTop: 4 }}>{result.phonetic}</p>}
+                {isJa && result.reading && <p style={{ color: "#F59E0B", fontFamily: "JetBrains Mono, monospace", fontSize: "1rem", marginTop: 4 }}>{result.reading}</p>}
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                {result.pos && <span style={{ background: "rgba(108,99,255,0.15)", color: "#8B5CF6", fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem", fontWeight: 700, padding: "3px 10px", borderRadius: 99 }}>{result.pos}</span>}
+                <span style={{ background: isEn ? "rgba(59,130,246,0.12)" : "rgba(236,72,153,0.12)", color: isEn ? "#3B82F6" : "#EC4899", fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem", fontWeight: 600, padding: "2px 8px", borderRadius: 99 }}>{isEn ? "🇬🇧 EN" : "🇯🇵 JA"}</span>
+              </div>
+            </div>
+            {result.definition_en && (
+              <div className="p-4 rounded-xl" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                <p style={{ color: "#4a5a7a", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", marginBottom: 4 }}>📖 Definition</p>
+                <p style={{ color: "#c4cfea", fontFamily: "Inter, sans-serif", fontSize: "0.9375rem", lineHeight: 1.65 }}>{result.definition_en}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Example & Audio */}
+          {isEn && (result.example || result.audio_url) && (
+            <div className="p-5 rounded-2xl" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}>
+              {result.example && (
+                <>
+                  <p style={{ color: "#4a5a7a", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", marginBottom: 6 }}>💬 Example</p>
+                  <p style={{ color: "#8B5CF6", fontFamily: "Inter, sans-serif", fontSize: "0.9rem", fontStyle: "italic", lineHeight: 1.6 }}>"{result.example}"</p>
+                </>
+              )}
+              {result.audio_url && (
+                <button
+                  onClick={() => new Audio(result.audio_url).play().catch(() => {})}
+                  className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl"
+                  style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "#3B82F6", fontFamily: "Sora, sans-serif", fontWeight: 600, fontSize: "0.8125rem", cursor: "pointer" }}
+                >
+                  <Volume2 size={15} /> Nghe phát âm
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="p-3 rounded-xl" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}>
+            <p style={{ color: "#4a5a7a", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", textAlign: "center" }}>
+              Nguồn: {isEn ? "Free Dictionary API (api.dictionaryapi.dev)" : "Jisho.org API"} · Hoàn toàn miễn phí
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {!loading && !result && !error && (
+        <div className="flex flex-col gap-3">
+          <p style={{ color: "#4a5a7a", fontFamily: "Inter, sans-serif", fontSize: "0.78rem", marginBottom: 4 }}>Thử các từ gợi ý:</p>
+          {["accomplish", "negotiate", "preliminary", "勉強", "会社", "経験"].map(word => (
+            <button key={word} onClick={() => { setQuery(word); }} className="px-4 py-2.5 rounded-xl text-left" style={{ background: "rgba(11,16,35,0.6)", border: "1px solid rgba(108,99,255,0.15)", color: "#8899bb", fontFamily: "Inter, sans-serif", fontSize: "0.9rem", cursor: "pointer" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(245,158,11,0.08)"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)"; e.currentTarget.style.color = "#f0f4ff"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(11,16,35,0.6)"; e.currentTarget.style.borderColor = "rgba(108,99,255,0.15)"; e.currentTarget.style.color = "#8899bb"; }}>
+              {word}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /* ─── TOEIC Page ──────────────────────────────────────────────────────────────*/
 export function TOEICPage() {
@@ -534,7 +925,9 @@ export function TOEICPage() {
             </div>
           )}
           {activeTab === "mocktest" && <MockTestTab />}
+          {activeTab === "dictionary" && <DictionarySearchTab />}
         </motion.div>
+
       </AnimatePresence>
     </div>
   );

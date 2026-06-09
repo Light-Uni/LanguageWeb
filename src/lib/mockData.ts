@@ -611,3 +611,357 @@ export const MOCK_TEST_INFO = {
     { part: 7, name: "Reading Comprehension", questions: 54, type: "reading" },
   ],
 };
+
+// ─── TOEIC Part 5 — Incomplete Sentences (Grammar / Vocabulary) ────────────
+export const TOEIC_PART5_QUESTIONS = [
+  {
+    id: "P5Q1",
+    sentence: "The new employee ________ the quarterly report before the deadline.",
+    options: ["submit", "submitted", "submitting", "to submit"],
+    correct: 1,
+    explanation: "Past simple tense needed because the event (submitting) happened before another past event (deadline).",
+    category: "Grammar",
+  },
+  {
+    id: "P5Q2",
+    sentence: "The marketing team ________ a comprehensive strategy to boost sales.",
+    options: ["developed", "development", "developing", "develop"],
+    correct: 0,
+    explanation: "Simple past 'developed' fits as the main verb of the sentence.",
+    category: "Grammar",
+  },
+  {
+    id: "P5Q3",
+    sentence: "All employees must ________ with the company's new data-protection policy.",
+    options: ["comply", "compliance", "complying", "complied"],
+    correct: 0,
+    explanation: "After modal verb 'must', use the base form of the verb: comply.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q4",
+    sentence: "The project was completed ________ of schedule, impressing the client.",
+    options: ["ahead", "before", "prior", "forward"],
+    correct: 0,
+    explanation: "'Ahead of schedule' is the fixed expression meaning before the planned time.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q5",
+    sentence: "________ the heavy workload, the team finished the presentation on time.",
+    options: ["Despite", "Although", "However", "Because"],
+    correct: 0,
+    explanation: "'Despite' is followed by a noun phrase (heavy workload), not a clause.",
+    category: "Grammar",
+  },
+  {
+    id: "P5Q6",
+    sentence: "The board of directors has ________ a new CEO to lead the company.",
+    options: ["appointed", "appointment", "appoints", "appointing"],
+    correct: 0,
+    explanation: "Present perfect 'has appointed' — main verb after auxiliary 'has' should be past participle.",
+    category: "Grammar",
+  },
+  {
+    id: "P5Q7",
+    sentence: "Candidates ________ for the position must have five years of experience.",
+    options: ["applying", "applied", "to apply", "applies"],
+    correct: 0,
+    explanation: "Participial phrase 'applying for the position' modifies 'Candidates'.",
+    category: "Grammar",
+  },
+  {
+    id: "P5Q8",
+    sentence: "The contract ________ that all disputes shall be resolved by arbitration.",
+    options: ["stipulates", "stipulate", "stipulated", "stipulating"],
+    correct: 0,
+    explanation: "Third-person singular present: 'The contract stipulates'.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q9",
+    sentence: "We will ________ the costs of the business trip in your next paycheck.",
+    options: ["reimburse", "reimbursement", "reimburses", "reimbursed"],
+    correct: 0,
+    explanation: "After 'will', use base form: reimburse.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q10",
+    sentence: "Ms. Chen is ________ in three programming languages, including Python.",
+    options: ["proficient", "proficiency", "proficiently", "proficient in"],
+    correct: 0,
+    explanation: "'Proficient' is an adjective used with 'be' verb: is proficient.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q11",
+    sentence: "The annual ________ showed a 12% increase in revenue compared to last year.",
+    options: ["forecast", "forecasting", "forecasts", "forecasted"],
+    correct: 0,
+    explanation: "Noun 'forecast' is the subject of the sentence.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q12",
+    sentence: "Please ________ the figures in this report before submitting it to the client.",
+    options: ["verify", "verification", "verified", "verifying"],
+    correct: 0,
+    explanation: "Imperative sentence uses base verb form: verify.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q13",
+    sentence: "The manager ________ responsibility for the quarterly results to her assistant.",
+    options: ["delegated", "delegation", "delegate", "delegating"],
+    correct: 0,
+    explanation: "Past simple 'delegated' is the main verb.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q14",
+    sentence: "The two companies decided to ________ on the development of the new product.",
+    options: ["collaborate", "collaboration", "collaboratively", "collaborating"],
+    correct: 0,
+    explanation: "After 'to' (infinitive marker), use base form: collaborate.",
+    category: "Vocabulary",
+  },
+  {
+    id: "P5Q15",
+    sentence: "The seminar is ________ to employees with more than two years of experience.",
+    options: ["restricted", "restricting", "restriction", "restrict"],
+    correct: 0,
+    explanation: "Past participle 'restricted' used as adjective with 'is': is restricted to.",
+    category: "Grammar",
+  },
+];
+
+// ─── TOEIC Part 6 — Text Completion ──────────────────────────────────────────
+export const TOEIC_PART6_PASSAGES = [
+  {
+    id: "P6A",
+    title: "Email: Project Status Update",
+    passage: [
+      { text: "Dear Team,\n\nI am writing to provide you with an update on the Henderson Project. As you know, we ", type: "text" },
+      { blank: "B1", options: ["have been working", "worked", "work", "are worked"], correct: 0, explanation: "Present perfect continuous shows ongoing action." },
+      { text: " diligently to meet the client's requirements.\n\nUnfortunately, there ", type: "text" },
+      { blank: "B2", options: ["has been", "have been", "was", "were"], correct: 0, explanation: "'There has been' — singular subject 'has been'." },
+      { text: " a slight delay in the delivery of raw materials. To compensate for the lost time, we will ________ the production schedule.", type: "text" },
+      { blank: "B3", options: ["expedite", "expend", "expect", "expand"], correct: 0, explanation: "'Expedite' means to make happen more quickly — fits the context." },
+      { text: "\n\nPlease submit your weekly progress reports by Friday.\n\nBest regards,\nProject Manager", type: "text" },
+    ],
+    questions: [
+      { id: "P6AQ1", blankId: "B1", options: ["have been working", "worked", "work", "are worked"], correct: 0, explanation: "Present perfect continuous shows ongoing action." },
+      { id: "P6AQ2", blankId: "B2", options: ["has been", "have been", "was", "were"], correct: 0, explanation: "'There has been' — singular 'delay' takes 'has'." },
+      { id: "P6AQ3", blankId: "B3", options: ["expedite", "expend", "expect", "expand"], correct: 0, explanation: "'Expedite' = make something happen faster." },
+    ],
+  },
+];
+
+// ─── TOEIC Part 7 — Multi-passage Reading Comprehension ─────────────────────
+export const TOEIC_PART7_PASSAGES = [
+  {
+    id: "P7A",
+    type: "single",
+    title: "Notice: Office Relocation",
+    passage: `OFFICE RELOCATION NOTICE
+
+To: All Staff
+From: Administration Department
+Date: August 3, 2025
+Subject: Upcoming Office Relocation
+
+We are pleased to announce that our headquarters will be relocating to a new, modern facility at 88 Innovation Drive, Suite 400, effective September 1, 2025.
+
+The new office features state-of-the-art meeting rooms, an on-site cafeteria, and improved parking facilities. All IT equipment will be moved during the weekend of August 29–31 by our contracted moving company, SecureMove Ltd.
+
+Employees are requested to:
+• Pack personal belongings in boxes provided by Administration (available from August 20).
+• Label all boxes clearly with your name and department.
+• Submit a request for a temporary laptop by August 25 if required.
+
+The office will be closed on August 29–31. Remote work is encouraged for those who need access to files during this period. For questions, please contact admin@company.com.`,
+    questions: [
+      {
+        id: "P7AQ1",
+        question: "When will the office relocation take effect?",
+        options: ["August 20", "August 25", "August 29", "September 1"],
+        correct: 3,
+        explanation: "The notice states 'effective September 1, 2025'.",
+      },
+      {
+        id: "P7AQ2",
+        question: "What should employees do by August 25?",
+        options: [
+          "Pack their personal belongings",
+          "Submit a temporary laptop request",
+          "Contact the moving company",
+          "Submit weekly progress reports",
+        ],
+        correct: 1,
+        explanation: "The notice says 'Submit a request for a temporary laptop by August 25 if required'.",
+      },
+      {
+        id: "P7AQ3",
+        question: "What is indicated about August 29–31?",
+        options: [
+          "Employees must come to the office",
+          "IT equipment will be installed",
+          "The office will be closed",
+          "Boxes will be distributed",
+        ],
+        correct: 2,
+        explanation: "The notice states 'The office will be closed on August 29–31'.",
+      },
+    ],
+  },
+  {
+    id: "P7B",
+    type: "single",
+    title: "Advertisement: Business Workshop",
+    passage: `ELEVATE YOUR CAREER
+Professional Development Workshop Series
+
+Transform your professional skills with our intensive weekend workshops designed for mid-level executives and aspiring managers.
+
+UPCOMING SESSIONS:
+
+• Effective Negotiation Strategies (October 12–13)
+  Learn proven techniques for contract negotiations, salary discussions, and client dealings.
+  Fee: 3,500,000 VND
+
+• Financial Planning for Non-Finance Managers (October 19–20)
+  Understand budgets, forecasts, and P&L statements without a finance background.
+  Fee: 3,200,000 VND
+
+• Advanced Leadership Communication (November 2–3)
+  Master presentation skills, executive presence, and stakeholder management.
+  Fee: 4,000,000 VND
+
+All workshops are held at the Grand Business Center, 15 Commerce Street. Lunch and learning materials are included. Early registration (before September 30) receives a 15% discount.
+
+For registration: workshops@elevate.vn | Tel: 028-3456-7890`,
+    questions: [
+      {
+        id: "P7BQ1",
+        question: "What is the most expensive workshop?",
+        options: [
+          "Effective Negotiation Strategies",
+          "Financial Planning for Non-Finance Managers",
+          "Advanced Leadership Communication",
+          "All workshops cost the same",
+        ],
+        correct: 2,
+        explanation: "Advanced Leadership Communication costs 4,000,000 VND, the highest.",
+      },
+      {
+        id: "P7BQ2",
+        question: "What benefit do early registrants receive?",
+        options: [
+          "Free lunch",
+          "Free learning materials",
+          "A 15% discount",
+          "A 20% discount",
+        ],
+        correct: 2,
+        explanation: "The ad says 'Early registration (before September 30) receives a 15% discount'.",
+      },
+      {
+        id: "P7BQ3",
+        question: "What is included in the workshop fee?",
+        options: [
+          "Accommodation",
+          "Transport",
+          "Lunch and learning materials",
+          "Certificate of completion",
+        ],
+        correct: 2,
+        explanation: "'Lunch and learning materials are included' is stated in the advertisement.",
+      },
+    ],
+  },
+];
+
+// ─── TOEIC Grammar Quiz (standalone) ─────────────────────────────────────────
+export const TOEIC_GRAMMAR_QUESTIONS = [
+  {
+    id: "G1",
+    question: "By the time the manager arrived, the team ________ the presentation.",
+    options: ["finished", "had finished", "has finished", "finish"],
+    correct: 1,
+    explanation: "Past perfect (had finished) is used for an action completed before another past action.",
+    topic: "Past Perfect",
+  },
+  {
+    id: "G2",
+    question: "The new software ________ by the IT department next week.",
+    options: ["will install", "will be installed", "is installing", "installs"],
+    correct: 1,
+    explanation: "Future passive voice: will be + past participle.",
+    topic: "Passive Voice",
+  },
+  {
+    id: "G3",
+    question: "________ the meeting room is available, we should book it immediately.",
+    options: ["Since", "If", "Unless", "Although"],
+    correct: 1,
+    explanation: "'If' introduces a conditional clause. 'Unless' means 'if not'.",
+    topic: "Conditionals",
+  },
+  {
+    id: "G4",
+    question: "The report, ________ was submitted last week, contains several errors.",
+    options: ["which", "that", "who", "whom"],
+    correct: 0,
+    explanation: "Non-defining relative clause uses 'which' (not 'that') with a comma.",
+    topic: "Relative Clauses",
+  },
+  {
+    id: "G5",
+    question: "She suggested ________ an extra shift to complete the project on time.",
+    options: ["to work", "working", "work", "worked"],
+    correct: 1,
+    explanation: "'Suggest' is followed by a gerund (verb + -ing): suggest working.",
+    topic: "Gerunds & Infinitives",
+  },
+  {
+    id: "G6",
+    question: "The company ________ in this building for over twenty years.",
+    options: ["has been located", "is locating", "located", "was locating"],
+    correct: 0,
+    explanation: "Present perfect passive for ongoing state: has been located.",
+    topic: "Perfect Passive",
+  },
+  {
+    id: "G7",
+    question: "Please send the documents to ________ is in charge of procurement.",
+    options: ["whoever", "whomever", "whatever", "whichever"],
+    correct: 0,
+    explanation: "'Whoever' is used as the subject of the embedded clause 'is in charge'.",
+    topic: "Pronoun Choice",
+  },
+  {
+    id: "G8",
+    question: "Not only ________ he increase sales, but he also reduced costs significantly.",
+    options: ["did", "had", "has", "does"],
+    correct: 0,
+    explanation: "Inverted structure with 'Not only' in past tense: Not only did he...",
+    topic: "Inversion",
+  },
+  {
+    id: "G9",
+    question: "I wish the management ________ our proposal more seriously.",
+    options: ["considered", "would consider", "considers", "had considered"],
+    correct: 1,
+    explanation: "'Wish + would + base verb' expresses a desire for a change in present/future.",
+    topic: "Wish Clauses",
+  },
+  {
+    id: "G10",
+    question: "The merger, ________ was announced last quarter, has boosted investor confidence.",
+    options: ["that", "which", "who", "what"],
+    correct: 1,
+    explanation: "Non-defining relative clause with comma uses 'which'.",
+    topic: "Relative Clauses",
+  },
+];
